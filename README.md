@@ -72,7 +72,7 @@ Indicates the type of structure implemented by the over-parameterization process
 - dynamic_decom
 Whether to use dynamic selection strategy. 
 NOTE: Use dynamic selection strategy but split_num=1 is equivalent to static selection strategy.
-- split_num:int, 
+- split_num
 Select the over-parameterized structure several times. e.g., topN=6, split_num=2, num_epoch=3, then topN=3 at epoch=0, 2 (math.ceil(3/2)=2) respectively.
 Note: The topN must be divisible by split_num.
 ```
@@ -96,6 +96,6 @@ Any scientific publications that use our codes should cite the following paper a
 
 
 # 
-This repo contains the PyTorch implementation of OPF based on repo "Parameter-Efficient Mixture-of-Experts Architecture for Pre-trained Language Models".[ref](https://aclanthology.org/2022.coling-1.288.pdf) and "Raise a Child in Large Language Model: Towards Effective and Generalizable Fine-tuning".
-[ref](https://arxiv.org/pdf/2109.05687.pdf) 
+This repo contains the PyTorch implementation of OPF based on repo "Parameter-Efficient Mixture-of-Experts Architecture for Pre-trained Language Models"[ref](https://aclanthology.org/2022.coling-1.288.pdf) and "Raise a Child in Large Language Model: Towards Effective and Generalizable Fine-tuning"
+[ref](https://arxiv.org/pdf/2109.05687.pdf).
 
