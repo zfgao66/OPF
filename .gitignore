@@ -1,0 +1,7 @@
+wandb/*
+.history/*
+*/runs/*
+*/wandb/*
+*pyc
+*.log
+runs/*
