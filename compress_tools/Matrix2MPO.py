@@ -23,7 +23,7 @@ class MPO:
         if fix_rank:
             self.mpo_truncate_ranks = fix_rank
         else:
-            self.mpo_truncate_ranks = self.compute_rank(truncate_num=self.truncate_num) # 以前是没有用到self，那么无法通过外界设置而更改
+            self.mpo_truncate_ranks = self.compute_rank(truncate_num=self.truncate_num)
 
     def compute_rank_position(self, s, truncate_num=None):
 
@@ -65,7 +65,7 @@ class MPO:
         tensor_set = []
         res = inp_matrix
         #################################################################################
-        # make M(m1,m2,...,mk, n1,n2,...,nk) to M(m1,n1,m2,n2,...,mk,nk)
+        
         res = res.reshape(tuple(self.mpo_input_shape[:]) + tuple(self.mpo_output_shape[:]))
         self.index_permute = np.transpose(
             np.array(range(len(self.mpo_input_shape) + len(self.mpo_output_shape))).reshape((2, -1))).flatten()
@@ -178,9 +178,7 @@ class MPO:
             r_r = mpo_trunc[i + 1]
             if isinstance(tensor_set[i], nn.parameter.Parameter):
                 if step_train:
-                    # 在用的mask方法
-                    # mask_noise[r_l:, :, :, r_r:] = 0.0
-                    # 与truncate一致的mask方法
+                    
                     mask_noise[r_l:, :, :, :] = 0.0
                     mask_noise[:r_l, :, :, r_r:] = 0.0
                     tensor_set[i].data = tensor_set[i].data * mask_noise
