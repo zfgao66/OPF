@@ -92,22 +92,7 @@ class LinearDecomMPO(nn.Module):
     def build_model(self,input_shape, use_kernel=None, bias=None):
         num_inputs = int(np.prod(input_shape[1::]))
 
-        # Check the dimensionality
-        # if np.prod(self.mpo_input_shape) != num_inputs:
-        #     raise ValueError("The size of the input tensor (i.e. product "
-        #                      "of the elements in mpo_input_shape) should "
-        #                      "equal to the number of input neurons %d." % num_inputs)
-        # if self.mpo_input_shape.shape[0] != self.mpo_output_shape.shape[0]: # 为什么这里只考虑第一个维度
-        #     raise ValueError("The number of input and output dimensions "
-        #                      "should be the same.")
-        # if self.mpo_ranks.shape[0] != self.mpo_output_shape.shape[0] + 1: # 这里没看太明白
-        #     raise ValueError("The number of the MPO-ranks should be "
-        #                      "1 + the number of the dimensions.")
-        # if self.debug:
-        #     print('mpo_input_shape = ' + str(self.mpo_input_shape))
-        #     print('mpo_output_shape = ' + str(self.mpo_output_shape))
-        #     print('mpo_ranks = ' + str(self.mpo_ranks))
-
+    
         total_length = torch.from_numpy(np.array(np.sum(self.mpo_input_shape * self.mpo_output_shape *
                               self.mpo_ranks[1:] * self.mpo_ranks[:-1])))
         if isinstance(use_kernel,torch.Tensor):
@@ -161,23 +146,6 @@ class LinearDecomMPO(nn.Module):
         ##################### use rebuild
         ori_shape=x.shape
 
-        # res = x.reshape(-1, x.shape[-1])
-        # # res = torch.from_numpy(res)
-        # # res = res.detach().cpu().numpy()
-        # for k in range(self.num_dim - 1, -1, -1):
-        #     res = torch.matmul(torch.reshape(res, (-1, self.shapes[k][0])),
-        #                        torch.reshape(self.cores[k], tuple(self.shapes[k])))
-        #     if 0 < k:
-        #         res = res.reshape(
-        #             (-1, self.mpo_input_shape[k - 1], self.mpo_output_shape[k], self.mpo_ranks[k])).permute(0, 2, 3,
-        #                                                                                                     1).reshape(
-        #             self.mpo_output_shape[k], -1)
-        # # res = res.flatten()
-        # # # if self.activation is not None:
-        # # #     res = self.activation(res)
-        # if self.use_bias:
-        #     res = torch.reshape(res,(tuple(ori_shape[:-1])+(-1,))) + self.bias
-
         return res.view((tuple(ori_shape[:-1])+(-1,)))
         # return res
     def from_pretrained(self, input_shape,kernel_pretrain,tensor_set,bias=None,use_bias=True, device=None):
@@ -201,20 +169,14 @@ class LinearDecomMPO(nn.Module):
             logger.info("Check no bias")
             self.bias = None
 
-        #################### use MPO forward
-        # if torch.has_cuda:
-        #     tmp_array = torch.cat([torch.from_numpy(i.flatten()).cuda() for i in kernel_pretrain],-1)
-        # else:
-        #     tmp_array = torch.cat([torch.from_numpy(i.flatten()) for i in kernel_pretrain], -1)
-        # self.build_model(input_shape,tmp_array,bias)
-        #################### use MPO forward
+
     def step_trunc(self, tensor_set):
         self.tensor_set = tensor_set
 
 class MPOattention(LinearDecomMPO):
     def __init__(self,*args, **kwargs):
         super(MPOattention, self).__init__(*args, **kwargs)
-        # TODO: try to get these params from upper layer
+       
         self.num_attention_heads = 12
         self.hidden_size = 768
         self.use_bias = False
@@ -223,9 +185,7 @@ class MPOattention(LinearDecomMPO):
     def forward(self, x):
 
         mpo = MPO(self.mpo_input_shape, self.mpo_output_shape, 192)
-        # x shape : 32,128,768
-        # weight shape: 12,769,769
-        # res = F.linear(res, mpo.mpo2matrix(self.tensor_set).view(self.num_attention_heads, self.hidden_size, self.hidden_size),self.bias)
+       
         if self.use_bias and not self.use_init_bias:
             ########### bias 
             input_ones = torch.cat((x, torch.ones_like(x)[:,:,0].unsqueeze(2)), dim=2) # 32,128,769
@@ -236,21 +196,7 @@ class MPOattention(LinearDecomMPO):
             big_att = torch.cat((part_12,part_34),dim=2)
             res = torch.einsum('blh,ahj->balj',input_ones, big_att) # 32,12,128,768
             res = torch.einsum('balj,bkj->balk',res, input_ones)
-            ############ no bias
-
-            ########### ori
-            # left = torch.einsum('bli,iah->balh',input_ones, self.w_q_ori) # 32,12,128,64
-            # left = torch.matmul(input_ones, self.w_q_ori)
-            # right = torch.einsum('ahj,blj->bahl',self.w_k_trans_ori, input_ones) # 32,12,64,128
-            # mpo_res_ori = torch.matmul(left,right)
-            # ########### ori
-            # ########### ori
-            # mpo_res = torch.einsum('bli,aij->balj',input_ones, self.mpo_score) # 32,64,128,768
-            # mpo_res = torch.einsum('balj,bkj->balk',mpo_res, input_ones).cuda().detach()
-            # diff = torch.norm(mpo_res - res)
-            # diff2 = torch.norm(mpo_res_ori - res)
-            ########### ori 
-            # print('done')
+            
         elif self.use_init_bias and self.use_bias:
             res = x
             res = torch.einsum('blh,ahj->balj',x, mpo.mpo2matrix(self.tensor_set).view(self.num_attention_heads, self.hidden_size, self.hidden_size)) # 32,12,128,768
@@ -271,7 +217,7 @@ class MPOattention(LinearDecomMPO):
         self.use_init_bias = True
         ########### test bias
         if (not self.use_init_bias) and self.use_bias:
-        # 这个是为了测试self.part_1 = torch.einsum('iah,ahj->aij',w_q,w_k_trans).cuda().detach() # 12,768,768
+        
             self.part_2 = torch.einsum('bah,ahj->abj',bias_q.view(1,12,64),w_k_trans).cuda().detach() # 12,1,768
             self.part_3 = torch.einsum('jah,ahb->ajb',w_q, bias_k.view(12,64,1)).cuda().detach() # 12,768,1
             self.part_4 = torch.einsum('iah,ahj->aij',bias_q.view(1,12,64),bias_k.view(12,64,1)).cuda().detach()
@@ -279,27 +225,7 @@ class MPOattention(LinearDecomMPO):
         elif self.use_bias and self.use_init_bias:
             logger.info("Check use init bias")
             self.bias = nn.Parameter(data=torch.zeros(12,128,128).cuda(), requires_grad=True)
-        ########### test bias
-        # part_12 = torch.cat((self.part_1,self.part_2),dim=1)
-        # part_34 = torch.cat((self.part_3,self.part_4),dim=1)
-        # big_att = torch.cat((part_12,part_34),dim=2)
-
-        # self.w_q_ori = torch.cat((w_q.reshape(768,12,64), bias_q.view(1,12,64)),dim=0).cuda().detach() # 769,12,64
-        # self.w_q = w_q
-        # self.b_q = bias_q
-        # self.w_q_ori = torch.cat((w_q.view(768,-1), bias_q.view(1,768)),dim=0).cuda().detach() # 769,768
-
-        # self.w_k_trans_ori = torch.cat((w_k_trans.view(12,64,768), bias_k.view(12,64,1)),dim=2).cuda().detach() # 12,64,769
-        # self.mpo_score = torch.einsum('ibh,bhj->bij',self.w_q_ori,self.w_k_trans_ori).cuda().detach()
-        # diff = torch.norm(big_att - mpo_score)
-        # print('done')
-        # # 真正的参数应该是big_att，这个本质上是由tensor初始化的，需要后面把这个改一下，改为从tensor直接得到这部分
-        # if use_bias:
-        #     self.big_att = nn.Parameter(data=big_att, requires_grad=True)
-        # else:
-        #     logger.info("Check no bias")
-        #     self.bias_q = self.bias_k = None
-        #     self.big_att = nn.Parameter(data=part_1, requires_grad=True)
+        
 
 class LinearDecomMPO_linear(LinearDecomMPO):
     def build_model(self,input_shape):
